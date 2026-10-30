@@ -36,3 +36,8 @@ data/
 *.sqlite3-journal
 *.sqlite3-wal
 *.sqlite3-shm
+
+# Node dependencies and local service configuration
+node_modules/
+api-node.env
+npm-debug.log*

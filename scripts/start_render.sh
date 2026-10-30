@@ -1,6 +1,9 @@
 #!/bin/sh
 set -eu
 
+# Fail configuration before launching Chromium; no secret values are printed.
+python -c "from config import settings; from config.internal import load_config; load_config()"
+
 python - <<'PY'
 from core.browser import browser_session
 from core import search_diagnostics as diagnostics
@@ -20,4 +23,4 @@ PY
 # In-memory jobs require exactly one process. Ignore environment CLI/config
 # injection; explicit flags also override WEB_CONCURRENCY and config defaults.
 unset GUNICORN_CMD_ARGS
-exec gunicorn --config /dev/null --workers 1 --worker-class gthread --threads 2 --timeout 30 --bind "0.0.0.0:${PORT:-10000}" main:app
+exec gunicorn --config /dev/null --workers 1 --worker-class gthread --threads 2 --timeout 30 --bind "0.0.0.0:${PORT:-10000}" internal_server:app

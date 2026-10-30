@@ -1,27 +1,127 @@
-# SARTHI 1.2
+# SARATHI: Express public API and Python internal search service
 
-Flask product search using the existing Amazon India and Flipkart Selenium and
-BeautifulSoup scrapers. SQLite stores product observations, price history, and
-search records. No AI, LLM, cloud database, credentials, or database server is used.
-Existing cards, highlights, loading animation, and search endpoints are unchanged.
+Express is the only public application server. Python retains the single job
+manager/executor, Selenium, retailer adapters, normalization, diagnostics and all
+SQLite writes. No AI, LLM, Firebase, Firestore, second job store or second database
+is introduced. Existing Jinja pages/assets/feedback remain internally rendered by
+Python and are authenticated-proxied through Express; the UI is not redesigned.
 
-## Local setup
+## Run both services locally
 
-From `scraper-service` in PowerShell:
+Requirements: Node 24 LTS (the pinned version is 24.18.0), Python with the existing
+requirements.txt packages, and Chrome/Chromium for actual retailer searches.
 
-```powershell
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-Copy-Item .env.example .env
-python -c "from services.sqlite_client import initialize_database; initialize_database()"
-python check_database.py
-python main.py
-```
+From the repository root, install Node dependencies from the lockfile:
 
-Open http://127.0.0.1:5000. Chrome and a compatible driver must be available for
-actual searches. SQLite is included in Python; no extra package is needed.
-SMTP settings remain optional for feedback delivery.
+    npm ci
+
+For a fresh checkout only, create matching ignored local configuration:
+
+    npm run configure:local
+
+This creates .env (Python) and api-node.env (Express), with a shared random service
+token and ports 5000/3000. It never prints the token or modifies SQLite, and refuses
+to overwrite either existing configuration file. In an already configured checkout,
+keep the existing files; do not run the setup helper again.
+
+Open two terminals at the repository root. Activate the existing Python environment
+in the first terminal, then run:
+
+    python internal_server.py
+
+In the second terminal run:
+
+    npm start
+
+In this Windows workspace, the existing environment can also be used directly:
+
+    ..\scraper-service\.venv\Scripts\python.exe internal_server.py
+
+Open http://127.0.0.1:3000, not Python's port. Stop an older local server occupying
+port 5000 before starting the new internal process. Ctrl+C stops each service.
+Python listens on loopback by default; unauthenticated page/search/static requests
+to it return 401. /healthz and /readyz intentionally need no token.
+
+For a new Python environment only, install requirements.txt. The existing database
+must remain in place. Do not initialize, reset, seed or replace a database merely
+to start the migration. On a genuinely fresh installation with no data, initialize
+SQLite explicitly before readiness can pass:
+
+    python -c "from services.sqlite_client import initialize_database; initialize_database()"
+
+This command is not needed for the preserved database in this workspace.
+
+## Service configuration
+
+Python reads .env through the existing settings loader. Express's npm start reads
+api-node.env using Node's built-in environment-file support. Environment variables
+override these files. Deployment uses environment secrets, not local env files.
+
+| Service | Variables |
+| --- | --- |
+| Express | PORT (3000 locally), SCRAPER_SERVICE_URL, SCRAPER_SERVICE_TOKEN, SCRAPER_REQUEST_TIMEOUT_MS (20000 default) |
+| Python | PORT (5000 locally), SCRAPER_SERVICE_TOKEN, optional SCRAPER_BIND_HOST (loopback locally), SQLITE_DATABASE_PATH, existing browser/SMTP variables |
+
+Use the same independently generated token in both services: 32-256 URL-safe
+letters/digits/underscore/hyphen. There is no default secret. Never put it in browser
+code or a public URL. Internal search endpoints are POST /internal/v1/search and
+GET /internal/v1/search/<job_id>/status or /results. Public /api/search URLs remain
+unchanged. Python compatibility/page/feedback/static routes are protected too.
+
+The Node client forwards only to the configured service origin, never a URL from
+the request. It forwards query/request_id unchanged, preserves the Python job ID,
+and never retries submissions. Known failed jobs remain HTTP 200 with success=false;
+unfinished results remain 202; unknown jobs remain 404. Safe gateway failures use
+502 (connection/protocol/authentication failure) or 504 (upstream deadline).
+Status/results retain Cache-Control: no-store.
+
+Express validates the public JSON search boundary, body size and upstream response
+contract. The original Python validation remains authoritative for Jinja form and
+feedback rendering, preserving field values, escaping, honeypot handling and errors.
+
+The per-upstream-call deadline includes reading the response body. It is independent
+of the existing 15-second frontend request deadline, Selenium navigation timeout,
+and Gunicorn timeout. A network timeout never means the Python job was cancelled.
+For SMTP servers requiring longer exchanges, configure SCRAPER_REQUEST_TIMEOUT_MS
+appropriately (up to 120000); the scraper navigation timeout is not changed.
+
+SMTP remains Python-owned. Set MAIL_SERVER, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD
+and FEEDBACK_RECIPIENT in Python's environment for real feedback delivery.
+Local configuration deliberately contains no SMTP credentials; the form reports
+a clear safe configuration error until these are supplied. Existing STARTTLS,
+login, sender, Reply-To and delivery behavior is retained.
+
+Both services expose /healthz (process liveness) and /readyz (readiness).
+Python readiness only reads an existing SQLite schema, checks configured executable
+paths, and checks job admission state. It never creates a database, launches Chrome,
+downloads drivers or visits retailers. Local discovery readiness does not prove
+Chrome actually works; the container retains its separate browser preflight.
+
+## Tests
+
+Install Node dependencies first, then use the existing Python environment:
+
+    python -m unittest test_background_search test_retailer_outcomes test_sqlite_integration test_specification_extractor test_internal_api test_frontend_integration
+    npm test
+    npm run check
+    node --check static/js/search.js
+    node --check test_frontend_polling.cjs
+    python check_database.py
+
+The original 61-test baseline passed before edits. The combined Python run now
+has 75 tests; Node's built-in runner has 33 tests. All passed locally. Existing
+contract fixtures are in tests/fixtures/api-contract.json. The frontend test now
+runs an Express subprocess against the authenticated Python app and temporary
+SQLite, using controlled retailer responses and a minimal DOM. It covers the
+original request ID, job ID, lost-response retry, progress/results, product cards,
+persistence warnings, page/assets, feedback and record counts.
+
+Automated tests do not contact Amazon, Flipkart or a real SMTP server. Do not run
+blanket discovery: other legacy test scripts include interactive/live diagnostics.
+Standalone Python and Express startup, readiness, auth, pages/assets, missing-job
+responses and safe missing-SMTP feedback were checked on localhost separately.
+Live retailer behavior, real SMTP delivery, container builds and Render deployment
+remain unverified. See deploy/README.md for separate deployment configurations.
 
 ## Local persistence
 
@@ -35,7 +135,7 @@ missing tables using `CREATE TABLE IF NOT EXISTS`; no table is dropped or cleare
 An incompatible existing schema is not silently reset. Back it up and inspect it
 before changing its schema. Do not point this setting at an unrelated database.
 
-HTTP routes -> SearchJobs single executor -> search_products with progress and
+Express -> authenticated Python routes -> SearchJobs single executor -> search_products with progress and
 search_id=job_id -> existing retailer adapters/Product model -> track_search ->
 SQLite repository. Each database operation owns and closes its own connection.
 HTTP routes never scrape or save observations inline.
@@ -125,17 +225,16 @@ Amazon, browser settings, and one-worker/two-gthread-thread startup are retained
 
 Run only the named offline/localhost checks, not blanket test discovery:
 
-    python -m unittest test_background_search test_retailer_outcomes test_sqlite_integration test_specification_extractor test_frontend_integration
+    python -m unittest test_background_search test_retailer_outcomes test_sqlite_integration test_specification_extractor test_internal_api test_frontend_integration
     node --check static/js/search.js
     node --check test_frontend_polling.cjs
     python check_database.py
 
-Node is used only by the frontend verification harness, with built-in Node modules;
-it is not an application dependency or backend runtime. Without Node that one
-harness test is explicitly skipped. All other tests use existing Python
-dependencies and the standard library.
+Node 24 is the public backend runtime. Express is pinned in package.json and
+package-lock.json. Node's built-in modules also run the frontend verification
+harness; the Python-only tests use existing dependencies and the standard library.
 
-The 61 automated checks exercise the combined architecture: 202/303 submission,
+The automated checks exercise the combined architecture: 202/303 submission,
 running/terminal polling, shared busy protection, 16 simultaneous idempotent
 submissions, lost-response recovery, optional progress callbacks, SQLite writes,
 partial/total retailer failure, persistence warnings, retention, transaction
@@ -147,7 +246,7 @@ It is not visual browser verification or a live retailer test.
 
 No existing database is used as a test fixture. Tests create isolated temporary
 databases. For manual local startup against an intended preserved database, confirm
-SQLITE_DATABASE_PATH first, then run python main.py; opening the homepage does
+SQLITE_DATABASE_PATH first, then run python internal_server.py; opening the homepage does
 not perform a retailer search. The database checker reads without creating a DB.
 Linux/Python 3.12 Docker preflight and real retailer searches still require
 separate verification; passing these checks does not establish Render success.
@@ -379,7 +478,7 @@ After the existing browser preflight, that script executes:
 
 ```sh
 unset GUNICORN_CMD_ARGS
-exec gunicorn --config /dev/null --workers 1 --worker-class gthread --threads 2 --timeout 30 --bind "0.0.0.0:${PORT:-10000}" main:app
+exec gunicorn --config /dev/null --workers 1 --worker-class gthread --threads 2 --timeout 30 --bind "0.0.0.0:${PORT:-10000}" internal_server:app
 ```
 
 Clearing `GUNICORN_CMD_ARGS`, disabling automatic config-file loading with
@@ -393,8 +492,8 @@ settings and the separate 15-second preflight timeout remain unchanged.
 
 ### Manual local verification
 
-1. Start `python main.py` for local Windows verification (no browser preflight or
-   Gunicorn). Open `http://127.0.0.1:5000/` and confirm the existing UI and feedback
+1. Start `python internal_server.py` for local Windows verification (no browser preflight or
+   Gunicorn). Start Express with `npm start`, then open `http://127.0.0.1:3000/` and confirm the existing UI and feedback
    page load. This does not verify Linux startup.
 2. Submit invalid input to `/api/search`; expect 400, including JSON arrays and
    non-string queries. Submit a valid query; expect 202 and a job ID promptly.

@@ -1,0 +1,191 @@
+{
+  "submission": {
+    "status": 202,
+    "json": {
+      "job_id": "11111111111111111111111111111111",
+      "results_url": "/api/search/11111111111111111111111111111111/results",
+      "status": "queued",
+      "status_url": "/api/search/11111111111111111111111111111111/status",
+      "success": true
+    }
+  },
+  "queued_status": {
+    "status": 200,
+    "json": {
+      "job_id": "11111111111111111111111111111111",
+      "message": "Search queued.",
+      "persistence": {
+        "status": "pending"
+      },
+      "query": "baseline phone",
+      "retailers": {
+        "Amazon": {
+          "status": "queued"
+        },
+        "Flipkart": {
+          "status": "queued"
+        }
+      },
+      "status": "queued",
+      "success": true
+    },
+    "cache_control": "no-store"
+  },
+  "unfinished_results": {
+    "status": 202,
+    "json": {
+      "job_id": "11111111111111111111111111111111",
+      "message": "Search queued.",
+      "persistence": {
+        "status": "pending"
+      },
+      "products": [],
+      "query": "baseline phone",
+      "retailers": {
+        "Amazon": {
+          "status": "queued"
+        },
+        "Flipkart": {
+          "status": "queued"
+        }
+      },
+      "status": "queued",
+      "success": true
+    },
+    "cache_control": "no-store"
+  },
+  "busy": {
+    "status": 409,
+    "json": {
+      "message": "Another search is running. Please try again when it finishes.",
+      "products": [],
+      "success": false
+    }
+  },
+  "request_conflict": {
+    "status": 409,
+    "json": {
+      "message": "This request ID was already used for a different search.",
+      "products": [],
+      "success": false
+    }
+  },
+  "invalid_query": {
+    "status": 400,
+    "json": {
+      "message": "Please enter a product name.",
+      "products": [],
+      "success": false
+    }
+  },
+  "invalid_request_id": {
+    "status": 400,
+    "json": {
+      "message": "A valid client request ID (32 lowercase hexadecimal characters) is required.",
+      "products": [],
+      "success": false
+    }
+  },
+  "completed_status": {
+    "status": 200,
+    "json": {
+      "job_id": "11111111111111111111111111111111",
+      "message": "Products found successfully.",
+      "persistence": {
+        "saved_count": 1,
+        "search_id": "11111111111111111111111111111111",
+        "status": "saved"
+      },
+      "query": "baseline phone",
+      "retailers": {
+        "Amazon": {
+          "count": 1,
+          "status": "completed"
+        },
+        "Flipkart": {
+          "count": 0,
+          "status": "empty"
+        }
+      },
+      "status": "completed",
+      "success": true
+    },
+    "cache_control": "no-store"
+  },
+  "completed_results": {
+    "status": 200,
+    "json": {
+      "job_id": "11111111111111111111111111111111",
+      "message": "Products found successfully.",
+      "persistence": {
+        "saved_count": 1,
+        "search_id": "11111111111111111111111111111111",
+        "status": "saved"
+      },
+      "products": [
+        {
+          "name": "Example phone",
+          "price": 100,
+          "rating": null,
+          "url": "https://www.amazon.in/phone/dp/B012345678?tag=example",
+          "image_url": null,
+          "retailer": "Amazon",
+          "category": "Other",
+          "specifications": {},
+          "availability": null,
+          "original_price": 150,
+          "highlights": []
+        }
+      ],
+      "query": "baseline phone",
+      "retailers": {
+        "Amazon": {
+          "count": 1,
+          "status": "completed"
+        },
+        "Flipkart": {
+          "count": 0,
+          "status": "empty"
+        }
+      },
+      "status": "completed",
+      "success": true
+    },
+    "cache_control": "no-store"
+  },
+  "failed_results": {
+    "status": 200,
+    "json": {
+      "job_id": "11111111111111111111111111111111",
+      "message": "Retailer searches are unavailable. Please try again later.",
+      "persistence": {
+        "saved_count": 0,
+        "search_id": "11111111111111111111111111111111",
+        "status": "saved"
+      },
+      "products": [],
+      "query": "baseline phone",
+      "retailers": {
+        "Amazon": {
+          "stage": "navigation_timeout",
+          "status": "failed"
+        },
+        "Flipkart": {
+          "stage": "navigation_timeout",
+          "status": "failed"
+        }
+      },
+      "status": "failed",
+      "success": false
+    },
+    "cache_control": "no-store"
+  },
+  "missing_job": {
+    "status": 404,
+    "json": {
+      "message": "This search is unavailable. The service may have restarted or the search expired. Please search again.",
+      "success": false
+    },
+    "cache_control": "no-store"
+  }
+}

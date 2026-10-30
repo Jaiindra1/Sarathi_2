@@ -22,3 +22,10 @@ data
 **/*.sqlite3
 **/*-wal
 **/*-shm
+
+node_modules
+src
+tests
+api-node.env
+Dockerfile.express
+Dockerfile.express.dockerignore

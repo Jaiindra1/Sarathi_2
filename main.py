@@ -194,12 +194,15 @@ def feedback():
             categories=FEEDBACK_CATEGORIES,
         )
 
-    except Exception:
-        app.logger.exception("Feedback email delivery failed")
+    except Exception as error:
+        app.logger.error("Feedback email delivery failed error_type=%s", type(error).__name__)
+        message = ("Feedback email is not configured. Please contact the site owner."
+                   if isinstance(error, RuntimeError) and str(error) == "Email configuration is incomplete."
+                   else "We couldn't send your feedback right now. Please try again later.")
 
         return render_template(
             "feedback.html",
-            message="We couldn't send your feedback right now. Please try again later.",
+            message=message,
             form=form,
             categories=FEEDBACK_CATEGORIES,
         )

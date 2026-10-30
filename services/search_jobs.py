@@ -17,6 +17,10 @@ class SearchBusy(RuntimeError):
     pass
 
 
+class SearchUnavailable(RuntimeError):
+    pass
+
+
 class RequestConflict(RuntimeError):
     pass
 
@@ -30,6 +34,7 @@ class SearchJobs:
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="product-search")
         self._jobs = {}
         self._active = None
+        self._accepting = True
 
     def _prune(self):
         # Called only under the lock. Active jobs are never removed.
@@ -56,6 +61,8 @@ class SearchJobs:
                     if existing["query"] != query:
                         raise RequestConflict("This request ID was already used for a different search.")
                     return {"job_id": existing["job_id"], "status": existing["status"]}
+            if not self._accepting:
+                raise SearchUnavailable("Search service is stopping.")
             if self._active is not None:
                 raise SearchBusy("Another search is running. Please try again when it finishes.")
             job_id = uuid4().hex
@@ -73,6 +80,19 @@ class SearchJobs:
                 self._active = None
                 raise
             return {"job_id": job_id, "status": "queued"}
+
+    @property
+    def accepting(self):
+        with self._lock:
+            return self._accepting
+
+    def stop_accepting(self):
+        with self._lock:
+            self._accepting = False
+
+    def close(self):
+        self.stop_accepting()
+        self._executor.shutdown(wait=True, cancel_futures=False)
 
     def get(self, job_id, include_products=False):
         with self._lock:
